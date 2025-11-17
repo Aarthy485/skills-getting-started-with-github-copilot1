@@ -4,6 +4,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
 
+  // Helper: (keeps code safe) - simple text encoder for user-provided strings when needed
+  const encodeHtml = (str) => String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
@@ -20,14 +23,38 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        // Build main card HTML (static parts)
         activityCard.innerHTML = `
-          <h4>${name}</h4>
-          <p>${details.description}</p>
-          <p><strong>Schedule:</strong> ${details.schedule}</p>
-          <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <h4>${encodeHtml(name)}</h4>
+          <p>${encodeHtml(details.description)}</p>
+          <p><strong>Schedule:</strong> ${encodeHtml(details.schedule)}</p>
+          <p><strong>Availability:</strong> ${encodeHtml(spotsLeft + " spots left")}</p>
+          <div class="participants">
+            <h5>Participants (<span class="participants-count">${details.participants.length}</span>)</h5>
+            <div class="participants-content"></div>
+          </div>
         `;
 
         activitiesList.appendChild(activityCard);
+
+        // Populate participants list safely using DOM methods
+        const participantsContent = activityCard.querySelector(".participants-content");
+        if (details.participants && details.participants.length > 0) {
+          const ul = document.createElement("ul");
+          ul.className = "participants-list";
+          details.participants.forEach((p) => {
+            const li = document.createElement("li");
+            li.className = "participant-item";
+            li.textContent = p; // textContent avoids HTML injection
+            ul.appendChild(li);
+          });
+          participantsContent.appendChild(ul);
+        } else {
+          const pNo = document.createElement("p");
+          pNo.className = "no-participants";
+          pNo.innerHTML = "<em>No participants yet</em>";
+          participantsContent.appendChild(pNo);
+        }
 
         // Add option to select dropdown
         const option = document.createElement("option");
