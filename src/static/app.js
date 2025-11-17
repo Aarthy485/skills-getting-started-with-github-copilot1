@@ -28,7 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <h4>${encodeHtml(name)}</h4>
           <p>${encodeHtml(details.description)}</p>
           <p><strong>Schedule:</strong> ${encodeHtml(details.schedule)}</p>
-          <p><strong>Availability:</strong> ${encodeHtml(spotsLeft + " spots left")}</p>
+          <p class="activity-availability"><strong>Availability:</strong> ${encodeHtml(spotsLeft + " spots left")}</p>
           <div class="participants">
             <h5>Participants (<span class="participants-count">${details.participants.length}</span>)</h5>
             <div class="participants-content"></div>
@@ -45,7 +45,51 @@ document.addEventListener("DOMContentLoaded", () => {
           details.participants.forEach((p) => {
             const li = document.createElement("li");
             li.className = "participant-item";
-            li.textContent = p; // textContent avoids HTML injection
+
+            // participant email span
+            const span = document.createElement("span");
+            span.className = "participant-email";
+            span.textContent = p;
+
+            // delete button
+            const btn = document.createElement("button");
+            btn.className = "delete-participant";
+            btn.setAttribute("aria-label", `Unregister ${p} from ${name}`);
+            btn.title = "Unregister participant";
+            btn.textContent = "✖";
+
+            // Attach click handler to perform DELETE request
+            btn.addEventListener("click", async () => {
+              if (!confirm(`Unregister ${p} from ${name}?`)) return;
+              try {
+                const res = await fetch(`/activities/${encodeURIComponent(name)}/participants?email=${encodeURIComponent(p)}`, {
+                  method: "DELETE",
+                });
+                const body = await res.json().catch(() => ({}));
+                if (res.ok) {
+                  // remove from DOM
+                  ul.removeChild(li);
+                  // update counts and availability text
+                  const countEl = activityCard.querySelector(".participants-count");
+                  const participantsCount = ul.querySelectorAll(".participant-item").length;
+                  countEl.textContent = participantsCount;
+                  const availabilityEl = activityCard.querySelector(".activity-availability");
+                  if (availabilityEl) {
+                    const max = details.max_participants;
+                    const spots = max - participantsCount;
+                    availabilityEl.textContent = `${spots} spots left`;
+                  }
+                } else {
+                  alert(body.detail || body.message || "Failed to unregister participant");
+                }
+              } catch (err) {
+                console.error("Error unregistering participant:", err);
+                alert("Failed to unregister participant. See console for details.");
+              }
+            });
+
+            li.appendChild(span);
+            li.appendChild(btn);
             ul.appendChild(li);
           });
           participantsContent.appendChild(ul);
@@ -89,6 +133,12 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        // Refresh activities to show the new participant immediately
+        try {
+          await fetchActivities();
+        } catch (err) {
+          console.error("Error refreshing activities after signup:", err);
+        }
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
